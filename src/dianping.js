@@ -15,14 +15,16 @@ const MODE_NAMES = new Map([
 ]);
 
 export class DianpingClient {
-  constructor({ cookie = '', timeoutMs = 15000 } = {}) {
+  constructor({ cookie = '', timeoutMs = 15000, logger = null } = {}) {
     this.cookie = cookie;
     this.timeoutMs = timeoutMs;
+    this.logger = logger;
   }
 
   async fetchActivities({ cityId, maxPages = 5 }) {
     const activities = [];
     for (let page = 1; page <= maxPages; page += 1) {
+      this.logger?.info(`Fetching activity list page ${page}/${maxPages} for city ${cityId}`);
       const payload = { cityId, mode: '', page, type: 0 };
       const body = await this.requestJson('http://m.dianping.com/activity/static/pc/ajaxList', {
         method: 'POST',
@@ -38,6 +40,7 @@ export class DianpingClient {
         throw new Error(`Unexpected activity list response on page ${page}`);
       }
 
+      this.logger?.info(`Activity list page ${page} returned ${detail.length} items, hasNext=${Boolean(body.data.hasNext)}`);
       activities.push(...detail.map(normalizeActivity));
       if (!body.data.hasNext) {
         break;

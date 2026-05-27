@@ -1,6 +1,6 @@
 export async function notifyBark({ bark, title, body }) {
   if (!bark) {
-    console.log('[Bark] BARK is not configured, skip notification.');
+    console.log(`[${new Date().toISOString()}] [Bark] [INFO] BARK is not configured, skip notification.`);
     return { skipped: true, reason: 'missing BARK' };
   }
 

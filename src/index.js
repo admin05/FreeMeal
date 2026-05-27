@@ -2,17 +2,30 @@ import { loadConfig } from './config.js';
 import { activityIdFromUrl, DianpingClient, shouldApply } from './dianping.js';
 import { notifyBark } from './notifier.js';
 import { writeReports } from './report.js';
-import { compactText, sleep } from './utils.js';
+import { compactText, createLogger, sleep } from './utils.js';
+
+const logger = createLogger();
 
 async function main() {
+  logger.info('Script started');
   const config = await loadConfig();
-  const client = new DianpingClient({ cookie: config.cookie });
+  const client = new DianpingClient({ cookie: config.cookie, logger });
 
-  console.log(`[FreeMeal] Fetching activities for city ${config.cityName || config.cityId}...`);
+  logger.info([
+    `Config loaded: city=${config.cityName || config.cityId}`,
+    `maxPages=${config.maxPages}`,
+    `maxApply=${config.maxApply}`,
+    `dryRun=${config.dryRun}`,
+    `cookie=${config.cookie ? 'configured' : 'missing'}`,
+    `bark=${config.bark ? 'configured' : 'missing'}`
+  ].join(', '));
+
+  logger.info(`Fetching activities for city ${config.cityName || config.cityId}`);
   const list = await client.fetchActivities({
     cityId: config.cityId,
     maxPages: config.maxPages
   });
+  logger.info(`Fetched ${list.length} activities`);
 
   const records = [];
   const summary = {
@@ -27,6 +40,7 @@ async function main() {
   };
 
   for (const [index, activity] of list.entries()) {
+    logger.info(`Processing ${index + 1}/${list.length}: ${compactText(activity.activityTitle, 60)}`);
     const detail = await safeFetchDetail(client, activity.detailUrl);
     const record = {
       index: index + 1,
@@ -39,6 +53,7 @@ async function main() {
     if (!shouldApply(record, config.filters)) {
       record.applyMessage = '过滤规则跳过';
       summary.skipped += 1;
+      logger.info(`Skipped by filters: ${compactText(record.activityTitle, 60)}`);
       records.push(record);
       continue;
     }
@@ -46,6 +61,7 @@ async function main() {
     if (summary.selected >= config.maxApply) {
       record.applyMessage = '超过 maxApply 限制';
       summary.skipped += 1;
+      logger.info(`Skipped by maxApply limit: ${compactText(record.activityTitle, 60)}`);
       records.push(record);
       continue;
     }
@@ -56,6 +72,7 @@ async function main() {
       record.applyStatus = 'failed';
       record.applyMessage = '无法从活动链接解析 offlineActivityId';
       summary.failed += 1;
+      logger.warn(`Failed to parse activity id: ${record.detailUrl}`);
       records.push(record);
       continue;
     }
@@ -63,37 +80,46 @@ async function main() {
     if (config.dryRun) {
       record.applyStatus = 'dry-run';
       record.applyMessage = 'dry-run 预览，未提交报名';
+      logger.info(`Dry-run selected: ${compactText(record.activityTitle, 60)} (${offlineActivityId})`);
       records.push(record);
       continue;
     }
 
     try {
+      logger.info(`Applying activity ${offlineActivityId}: ${compactText(record.activityTitle, 60)}`);
       const result = await client.applyActivity(offlineActivityId, config.applyProfile);
       record.applyStatus = result.status;
       record.applyMessage = result.message;
       summary[result.status] += 1;
+      logger.info(`Apply result for ${offlineActivityId}: ${result.status} - ${result.message}`);
     } catch (error) {
       record.applyStatus = 'failed';
       record.applyMessage = error.message;
       summary.failed += 1;
+      logger.error(`Apply failed for ${offlineActivityId}: ${error.message}`);
     }
     records.push(record);
     await sleep(config.requestDelayMs);
   }
 
   const paths = await writeReports({ reportDir: config.reportDir, records, summary });
+  logger.info(`Reports written: ${paths.csvPath}, ${paths.jsonPath}`);
   const notification = buildNotification(summary, records, paths);
-  console.log(notification.body);
+  logger.info(`Run summary:\n${notification.body}`);
 
   try {
+    logger.info('Sending Bark notification');
     await notifyBark({
       bark: config.bark,
       title: notification.title,
       body: notification.body
     });
+    logger.info('Bark notification finished');
   } catch (error) {
-    console.error(`[Bark] ${error.message}`);
+    logger.error(`Bark notification failed: ${error.message}`);
   }
+
+  logger.info('Script finished');
 }
 
 async function safeFetchDetail(client, detailUrl) {
@@ -128,7 +154,7 @@ function buildNotification(summary, records, paths) {
 }
 
 main().catch(async (error) => {
-  console.error(`[FreeMeal] ${error.stack || error.message}`);
+  logger.error(error.stack || error.message);
   try {
     const config = await loadConfig(['--dry-run']);
     await notifyBark({

@@ -63,10 +63,14 @@ DIANPING_COOKIE='你的 Cookie' DIANPING_CITY_ID=1 npm start
 运行命令：
 
 ```bash
-npm start
+node src/index.js
 ```
 
 脚本不会在源码、报告或日志里保存 Bark key。Cookie 只从环境变量读取。
+
+## 日志
+
+脚本会输出带时间戳的运行日志，包括配置摘要、列表页抓取进度、活动处理进度、报名结果、报告路径和 Bark 发送状态。日志只显示 `cookie=configured/missing` 和 `bark=configured/missing`，不会打印 Cookie 或 Bark key。
 
 ## 说明
 

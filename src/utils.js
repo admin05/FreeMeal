@@ -45,3 +45,22 @@ export function splitList(value) {
     .map((item) => item.trim())
     .filter(Boolean);
 }
+
+export function createLogger(prefix = 'FreeMeal') {
+  const format = (level, message) => {
+    const time = new Date().toISOString();
+    return `[${time}] [${prefix}] [${level}] ${message}`;
+  };
+
+  return {
+    info(message) {
+      console.log(format('INFO', message));
+    },
+    warn(message) {
+      console.warn(format('WARN', message));
+    },
+    error(message) {
+      console.error(format('ERROR', message));
+    }
+  };
+}
