@@ -1,5 +1,6 @@
 import { loadConfig } from './config.js';
 import { DianpingClient, shouldApply } from './dianping.js';
+import { loadSeenActivityIds } from './history.js';
 import { notifyBark } from './notifier.js';
 import { writeReports } from './report.js';
 import { compactText, createLogger } from './utils.js';
@@ -20,6 +21,8 @@ async function main() {
   ].join(', '));
 
   logger.info(`Fetching activities for city ${config.cityName || config.cityId}`);
+  const seenActivityIds = await loadSeenActivityIds(config.reportDir, logger);
+  logger.info(`Loaded ${seenActivityIds.size} previously notified activities from reports`);
   const list = await client.fetchActivities({
     cityId: config.cityId,
     maxPages: config.maxPages
@@ -58,6 +61,14 @@ async function main() {
       record.discoveryMessage = '已在 FREEMEAL_EXCLUDE_IDS 中手动排除';
       summary.skipped += 1;
       logger.info(`Skipped by exclude ids: ${compactText(record.activityTitle, 60)}`);
+      records.push(record);
+      continue;
+    }
+
+    if (seenActivityIds.has(String(record.offlineActivityId))) {
+      record.discoveryMessage = '历史已推送，跳过';
+      summary.skipped += 1;
+      logger.info(`Skipped previously notified: ${compactText(record.activityTitle, 60)}`);
       records.push(record);
       continue;
     }
