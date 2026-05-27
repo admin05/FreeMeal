@@ -1,6 +1,5 @@
 import { loadConfig } from './config.js';
 import { DianpingClient, shouldApply } from './dianping.js';
-import { canMeasureDistance, enrichDistance } from './geo.js';
 import { notifyBark } from './notifier.js';
 import { writeReports } from './report.js';
 import { compactText, createLogger } from './utils.js';
@@ -16,8 +15,6 @@ async function main() {
     `Config loaded: city=${config.cityName || config.cityId}`,
     `maxPages=${config.maxPages}`,
     `maxResults=${config.maxResults}`,
-    `maxDistanceKm=${config.maxDistanceKm}`,
-    `distance=${canMeasureDistance(config) ? 'configured' : 'missing'}`,
     `cookie=${config.cookie ? 'configured' : 'missing'}`,
     `bark=${config.bark ? 'configured' : 'missing'}`
   ].join(', '));
@@ -81,23 +78,6 @@ async function main() {
       continue;
     }
 
-    const distance = await enrichDistance(record, config, logger);
-    Object.assign(record, distance);
-    if (distance.distanceStatus === 'too_far') {
-      record.discoveryMessage = `超过 ${config.maxDistanceKm}km，${distance.distanceMessage}`;
-      summary.skipped += 1;
-      logger.info(`Skipped by distance: ${compactText(record.activityTitle, 60)} - ${record.discoveryMessage}`);
-      records.push(record);
-      continue;
-    }
-    if (distance.distanceStatus === 'unknown' && canMeasureDistance(config)) {
-      record.discoveryMessage = distance.distanceMessage;
-      summary.skipped += 1;
-      logger.info(`Skipped by unknown distance: ${compactText(record.activityTitle, 60)} - ${record.discoveryMessage}`);
-      records.push(record);
-      continue;
-    }
-
     summary.matched += 1;
     record.discoveryStatus = 'matched';
     record.discoveryMessage = buildMatchMessage(record);
@@ -145,7 +125,6 @@ function buildNotification(summary, records, paths) {
       const parts = [
         `${record.index}. ${compactText(record.activityTitle, 24)}`,
         record.regionName ? `商圈：${compactText(record.regionName, 12)}` : '',
-        record.distanceKm ? `距离：${record.distanceKm}km` : '',
         record.winningRate ? `中奖率：${record.winningRate}%` : '',
         record.applyCount ? `报名：${record.applyCount}` : '',
         record.appDetailUrl ? `打开：${record.appDetailUrl}` : (record.detailUrl ? `链接：${record.detailUrl}` : '')
@@ -176,7 +155,6 @@ function buildMatchMessage(record) {
     record.winningRate ? `中奖率 ${record.winningRate}%` : '',
     record.applyCount ? `报名 ${record.applyCount}` : '',
     record.activityCount ? `名额 ${record.activityCount}` : '',
-    record.distanceKm ? `距离 ${record.distanceKm}km` : '',
     record.regionName ? `商圈 ${record.regionName}` : ''
   ].filter(Boolean);
   return parts.join('，') || '符合筛选条件';

@@ -6,7 +6,6 @@
 
 - 拉取指定城市的大众点评免费试活动列表
 - 可按关键词、活动模式和最低中奖率过滤
-- 可按距离过滤，默认排除 10km 以上活动
 - 自动排除接口返回的已报名活动，也支持手动排除活动 ID
 - 发现符合条件的活动并统计匹配、跳过
 - 生成 CSV/JSON 报告到 `reports/`
@@ -23,10 +22,6 @@
 - `FREEMEAL_CONFIG`: JSON 配置文件路径，默认读取 `config/local.json`
 - `FREEMEAL_MAX_PAGES`: 最多抓取页数
 - `FREEMEAL_MAX_RESULTS`: 最多推送和报告的匹配活动数
-- `FREEMEAL_MAX_DISTANCE_KM`: 最大距离，默认 `10`
-- `FREEMEAL_HOME_LAT`: 你的常用位置纬度，用于距离计算
-- `FREEMEAL_HOME_LNG`: 你的常用位置经度，用于距离计算
-- `FREEMEAL_AMAP_KEY` 或 `AMAP_KEY`: 高德 Web 服务 Key，用于把活动地址/商圈转成坐标
 - `FREEMEAL_EXCLUDE_IDS`: 手动排除活动 ID，逗号分隔；可用来排除你已经报名但公开接口未标记的活动
 - `FREEMEAL_INCLUDE`: 标题包含关键词，逗号分隔
 - `FREEMEAL_EXCLUDE`: 标题排除关键词，逗号分隔
@@ -73,7 +68,7 @@ node checkin.js
 
 Bark 通知正文里的活动链接使用 `dianping://picassobox?...` App 深链；点通知本身会打开本次第一个匹配活动。报告里会同时保存网页链接和 App 链接。
 
-距离过滤需要同时配置 `FREEMEAL_HOME_LAT`、`FREEMEAL_HOME_LNG` 和 `FREEMEAL_AMAP_KEY`。未配置时脚本不会按距离排除；配置后，距离超过 `FREEMEAL_MAX_DISTANCE_KM` 的活动会被跳过。公开列表接口不总是返回已报名状态，如果某个已报名活动仍被推送，可以把活动链接里的数字 ID 加到 `FREEMEAL_EXCLUDE_IDS`。
+公开列表接口不总是返回已报名状态，如果某个已报名活动仍被推送，可以把活动链接里的数字 ID 加到 `FREEMEAL_EXCLUDE_IDS`。
 
 ## 日志
 
