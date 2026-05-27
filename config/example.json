@@ -4,7 +4,9 @@
   "maxPages": 3,
   "maxApply": 20,
   "dryRun": true,
-  "applyUrl": "https://m.dianping.com/bwc/customer/fastapply.bin",
+  "lat": "",
+  "lng": "",
+  "locCityId": "14",
   "filters": {
     "includeKeywords": [],
     "excludeKeywords": [],

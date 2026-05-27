@@ -1,9 +1,9 @@
 import { compactText, toNumber } from './utils.js';
 
 const BASE_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-  Referer: 'https://s.dianping.com/',
-  Origin: 'https://s.dianping.com'
+  'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 dp/com.dianping.dpscope/11.63.13',
+  Referer: 'https://m.dianping.com/',
+  Origin: 'https://m.dianping.com'
 };
 
 const MODE_NAMES = new Map([
@@ -14,7 +14,10 @@ const MODE_NAMES = new Map([
   [5, '天天抽奖']
 ]);
 
-const DEFAULT_APPLY_URL = 'https://m.dianping.com/bwc/customer/fastapply.bin';
+const MOBILE_BASE_URL = 'https://m.dianping.com';
+const DETAIL_URL = `${MOBILE_BASE_URL}/bwc/customer/loadactivitydetail.bin`;
+const PRE_APPLY_URL = `${MOBILE_BASE_URL}/bwc/customer/preapply.bin`;
+const DO_APPLY_URL = `${MOBILE_BASE_URL}/bwc/customer/doapply.bin`;
 
 export class HttpError extends Error {
   constructor(message, { status, url, body = '' } = {}) {
@@ -27,11 +30,10 @@ export class HttpError extends Error {
 }
 
 export class DianpingClient {
-  constructor({ cookie = '', timeoutMs = 15000, logger = null, applyUrl = '' } = {}) {
+  constructor({ cookie = '', timeoutMs = 15000, logger = null } = {}) {
     this.cookie = cookie;
     this.timeoutMs = timeoutMs;
     this.logger = logger;
-    this.applyUrl = applyUrl || DEFAULT_APPLY_URL;
   }
 
   async fetchActivities({ cityId, maxPages = 5 }) {
@@ -92,24 +94,85 @@ export class DianpingClient {
   }
 
   async applyActivity(activityId, { cityId, token, profile = {} } = {}) {
-    const payload = {
-      appCityId: toNumber(cityId, cityId),
-      activityId: toNumber(activityId, activityId),
+    const detail = await this.loadMobileActivityDetail(activityId, { cityId, token, profile });
+    const preApply = await this.preApplyActivity(activityId, { cityId, token, profile });
+    const chosenShop = chooseShop(preApply?.data) || chooseShop(detail?.data) || {};
+    const doApplyPayload = {
+      activityId: pickActivityId(preApply?.data, detail?.data, activityId),
+      branchId: chosenShop.shopId || profile.branchId || '',
+      shopIdEncrypt: chosenShop.shopIdEncrypt || profile.shopIdEncrypt || '',
+      passCardNo: profile.passCardNo || '',
+      substituteState: profile.substituteState ? 1 : 0,
       token,
-      ...profile
+      appCityId: toNumber(cityId, cityId)
     };
 
-    const body = await this.requestJson(this.applyUrl, {
-      method: 'POST',
-      headers: {
-        ...BASE_HEADERS,
-        Cookie: this.cookie,
-        'Content-Type': 'application/json;charset=UTF-8'
-      },
-      body: JSON.stringify(payload)
-    });
+    if (!doApplyPayload.branchId && !doApplyPayload.shopIdEncrypt) {
+      return {
+        status: 'failed',
+        message: '预报名成功但未返回可报名门店，无法提交 doapply'
+      };
+    }
+
+    this.logger?.info(`Pre-apply ok, selected branch=${maskValue(doApplyPayload.branchId || doApplyPayload.shopIdEncrypt)}`);
+    const body = await this.postMobileJson(DO_APPLY_URL, doApplyPayload);
 
     return classifyApplyResult(body);
+  }
+
+  async loadMobileActivityDetail(activityId, { cityId, token, profile = {} } = {}) {
+    const payload = {
+      showBranchPassApply: 'true',
+      activityId: toNumber(activityId, activityId),
+      env: 'dp',
+      lng: profile.lng || '',
+      lat: profile.lat || '',
+      token,
+      version: 'v3',
+      appCityId: toNumber(cityId, cityId),
+      sysName: profile.sysName || 'iOS',
+      sysVersion: profile.sysVersion || ''
+    };
+    return this.getMobileJson(DETAIL_URL, payload);
+  }
+
+  async preApplyActivity(activityId, { cityId, token, profile = {} } = {}) {
+    const payload = {
+      activityId: toNumber(activityId, activityId),
+      showBranchPassApply: 'true',
+      lng: profile.lng || '',
+      lat: profile.lat || '',
+      token,
+      locCityId: profile.locCityId || cityId
+    };
+    return this.getMobileJson(PRE_APPLY_URL, payload);
+  }
+
+  async getMobileJson(url, params) {
+    const target = `${url}?${new URLSearchParams(cleanParams(params)).toString()}`;
+    return this.requestJson(target, {
+      method: 'GET',
+      headers: this.mobileHeaders()
+    });
+  }
+
+  async postMobileJson(url, payload) {
+    return this.requestJson(url, {
+      method: 'POST',
+      headers: {
+        ...this.mobileHeaders(),
+        'Content-Type': 'application/json;charset=UTF-8'
+      },
+      body: JSON.stringify(cleanParams(payload))
+    });
+  }
+
+  mobileHeaders() {
+    return {
+      ...BASE_HEADERS,
+      Cookie: this.cookie,
+      Accept: 'application/json, text/plain, */*'
+    };
   }
 
   async requestJson(url, options) {
@@ -117,7 +180,7 @@ export class DianpingClient {
     try {
       return JSON.parse(text);
     } catch (error) {
-      throw new Error(`Invalid JSON from ${url}: ${compactText(text)}`);
+      throw new Error(`Invalid JSON from ${sanitizeUrl(url)}: ${compactText(text)}`);
     }
   }
 
@@ -131,9 +194,9 @@ export class DianpingClient {
       });
       const text = await response.text();
       if (!response.ok) {
-        throw new HttpError(`HTTP ${response.status} from ${url}: ${compactText(text)}`, {
+        throw new HttpError(`HTTP ${response.status} from ${sanitizeUrl(url)}: ${compactText(text)}`, {
           status: response.status,
-          url,
+          url: sanitizeUrl(url),
           body: text
         });
       }
@@ -188,6 +251,61 @@ function classifyApplyResult(body) {
     return { status: 'duplicate', message: compactText(text, 260) };
   }
   return { status: 'failed', message: compactText(text, 260) || '报名异常' };
+}
+
+function chooseShop(data) {
+  const districts = data?.optionalDistricts || [];
+  for (const district of districts) {
+    const shops = district?.optionalShops || [];
+    const available = shops.find((shop) => shop && shop.branchPassApplyStatus !== 0);
+    if (available) {
+      return available;
+    }
+  }
+  return null;
+}
+
+function pickActivityId(...values) {
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+    if (typeof value === 'object' && value.activityId) {
+      return toNumber(value.activityId, value.activityId);
+    }
+    if (typeof value !== 'object') {
+      return toNumber(value, value);
+    }
+  }
+  return '';
+}
+
+function cleanParams(params) {
+  return Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined && value !== null)
+  );
+}
+
+function maskValue(value) {
+  const text = String(value || '');
+  if (text.length <= 4) {
+    return text ? '***' : '';
+  }
+  return `${text.slice(0, 2)}***${text.slice(-2)}`;
+}
+
+function sanitizeUrl(url) {
+  try {
+    const parsed = new URL(url);
+    for (const key of ['token', 'cookie', 'passCardNo']) {
+      if (parsed.searchParams.has(key)) {
+        parsed.searchParams.set(key, '[REDACTED]');
+      }
+    }
+    return parsed.toString();
+  } catch {
+    return String(url).replace(/([?&](?:token|cookie|passCardNo)=)[^&\s]+/gi, '$1[REDACTED]');
+  }
 }
 
 function pickText(html, regexp, group = 1) {

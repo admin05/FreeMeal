@@ -22,6 +22,9 @@
 
 - `DIANPING_CITY_ID`: 城市 ID，默认福州 `14`
 - `DIANPING_CITY_NAME`: 城市名称，通知中展示
+- `DIANPING_LAT`: 定位纬度，可选；用于模拟 App 详情/预报名请求
+- `DIANPING_LNG`: 定位经度，可选；用于模拟 App 详情/预报名请求
+- `DIANPING_LOC_CITY_ID`: 定位城市 ID，默认跟 `DIANPING_CITY_ID` 一致
 - `BARK`: Bark key、完整 Bark URL，或 Bark base URL
 - `FREEMEAL_CONFIG`: JSON 配置文件路径，默认读取 `config/local.json`
 - `FREEMEAL_DRY_RUN`: `1` 时只预览不报名
@@ -31,7 +34,6 @@
 - `FREEMEAL_EXCLUDE`: 标题排除关键词，逗号分隔
 - `FREEMEAL_MIN_WIN_RATE`: 最低中奖率百分比
 - `FREEMEAL_MODES`: 活动模式，逗号分隔，例如 `聚会,电子券`
-- `DIANPING_APPLY_URL`: 自定义报名接口。默认使用新版 `https://m.dianping.com/bwc/customer/fastapply.bin`。
 
 ## 使用
 
@@ -79,6 +81,22 @@ node checkin.js
 
 脚本不会在源码、报告或日志里保存 Bark key。Cookie 只从环境变量读取。
 
+## Token
+
+`DIANPING_TOKEN` 可以从 Stream 导出的 HAR 中提取。脚本自带本地提取工具，默认只显示脱敏预览：
+
+```bash
+node scripts/extract-token.js "/path/to/Stream.har"
+```
+
+确认命中的是大众点评当前账号后，再显示完整 token 并复制到 Arcadia 环境变量：
+
+```bash
+node scripts/extract-token.js "/path/to/Stream.har" --show-secret
+```
+
+不要把完整 token 写入源码、README、日志或提交记录。
+
 ## 日志
 
 脚本会输出带时间戳的运行日志，包括配置摘要、列表页抓取进度、活动处理进度、报名结果、报告路径和 Bark 发送状态。日志只显示 `cookie=configured/missing`、`token=configured/missing` 和 `bark=configured/missing`，不会打印 Cookie、token 或 Bark key。
@@ -87,4 +105,4 @@ node checkin.js
 
 大众点评接口可能变更，也可能对账号、Cookie、风控或验证码有额外校验。建议首次运行使用 `node index.js --dry-run`，确认活动列表和过滤规则正常后再正式报名。
 
-当前脚本可以稳定拉取免费试列表。新版报名接口来自大众点评 App 的 `fastapply.bin`，请求参数为 `appCityId`、`activityId` 和 `token`。如果接口继续变化，需要用手机 App 重新抓包，拿到新的报名接口后通过 `DIANPING_APPLY_URL` 适配。
+当前脚本可以稳定拉取免费试列表。报名流程已按大众点评 App 抓包更新为 `loadactivitydetail.bin -> preapply.bin -> doapply.bin`，并会从预报名结果里自动选择可报名门店后提交。如果接口继续变化，需要用手机 App 重新抓包确认新的详情页和报名接口参数。

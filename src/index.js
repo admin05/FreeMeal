@@ -9,7 +9,7 @@ const logger = createLogger();
 async function main() {
   logger.info('Script started');
   const config = await loadConfig();
-  const client = new DianpingClient({ cookie: config.cookie, logger, applyUrl: config.applyUrl });
+  const client = new DianpingClient({ cookie: config.cookie, logger });
 
   logger.info([
     `Config loaded: city=${config.cityName || config.cityId}`,
@@ -18,8 +18,7 @@ async function main() {
     `dryRun=${config.dryRun}`,
     `cookie=${config.cookie ? 'configured' : 'missing'}`,
     `token=${config.token ? 'configured' : 'missing'}`,
-    `bark=${config.bark ? 'configured' : 'missing'}`,
-    `applyUrl=${config.applyUrl ? 'custom' : 'default'}`
+    `bark=${config.bark ? 'configured' : 'missing'}`
   ].join(', '));
 
   logger.info(`Fetching activities for city ${config.cityName || config.cityId}`);
@@ -101,7 +100,12 @@ async function main() {
       const result = await client.applyActivity(offlineActivityId, {
         cityId: config.cityId,
         token: config.token,
-        profile: config.applyProfile
+        profile: {
+          ...config.applyProfile,
+          lat: config.lat,
+          lng: config.lng,
+          locCityId: config.locCityId
+        }
       });
       record.applyStatus = result.status;
       record.applyMessage = result.message;
@@ -182,7 +186,7 @@ function truncate(text, maxLength) {
 
 function normalizeApplyError(error) {
   if (isApplyEndpointUnavailable(error)) {
-    return '报名接口返回 404，请重新抓包确认 fastapply 接口是否变化';
+    return '报名接口返回 404，请重新抓包确认 preapply/doapply 接口是否变化';
   }
   return compactText(error.message, 180);
 }
@@ -190,7 +194,7 @@ function normalizeApplyError(error) {
 function isApplyEndpointUnavailable(error) {
   return error instanceof HttpError
     && error.status === 404
-    && String(error.url || '').includes('/bwc/customer/fastapply.bin');
+    && /\/bwc\/customer\/(?:preapply|doapply|loadactivitydetail)\.bin/.test(String(error.url || ''));
 }
 
 main().catch(async (error) => {

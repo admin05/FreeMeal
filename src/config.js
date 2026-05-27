@@ -21,7 +21,9 @@ export async function loadConfig(argv = process.argv.slice(2), env = process.env
     requestDelayMs: positiveInteger(cli.requestDelayMs ?? env.FREEMEAL_DELAY_MS ?? fileConfig.requestDelayMs, 800),
     dryRun: Boolean(cli.dryRun || env.FREEMEAL_DRY_RUN === '1' || fileConfig.dryRun),
     reportDir: cli.reportDir || env.FREEMEAL_REPORT_DIR || fileConfig.reportDir || 'reports',
-    applyUrl: cli.applyUrl || env.DIANPING_APPLY_URL || fileConfig.applyUrl || '',
+    lat: cli.lat || env.DIANPING_LAT || fileConfig.lat || '',
+    lng: cli.lng || env.DIANPING_LNG || fileConfig.lng || '',
+    locCityId: cli.locCityId || env.DIANPING_LOC_CITY_ID || fileConfig.locCityId || cli.cityId || env.DIANPING_CITY_ID || fileConfig.cityId || DEFAULT_CITY_ID,
     bark: env.BARK || fileConfig.bark || '',
     filters: {
       includeKeywords: splitList(cli.include ?? env.FREEMEAL_INCLUDE ?? fileConfig.filters?.includeKeywords),
@@ -91,6 +93,6 @@ function validateConfig(config) {
     throw new Error('Missing DIANPING_COOKIE. Use --dry-run for list preview without applying.');
   }
   if (!config.token && !config.dryRun) {
-    throw new Error('Missing DIANPING_TOKEN. New Dianping fast apply API requires the app token.');
+    throw new Error('Missing DIANPING_TOKEN. Dianping app apply API requires the app token.');
   }
 }
