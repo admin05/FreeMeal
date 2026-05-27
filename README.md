@@ -8,7 +8,7 @@
 - 可按关键词、活动模式和最低中奖率过滤
 - 发现符合条件的活动并统计匹配、跳过
 - 生成 CSV/JSON 报告到 `reports/`
-- 通过 Arcadia 环境变量 `BARK` 发送运行摘要
+- 通过 Arcadia 环境变量 `BARK` 发送运行摘要，通知链接优先打开 iPhone 上的大众点评 App
 
 ## 环境变量
 
@@ -63,6 +63,8 @@ node checkin.js
 如果运行日志只有“执行开始/执行完毕”，但没有 `[FreeMeal] [INFO] Script started`，说明 Arcadia 没有执行到本项目入口。请检查任务的运行命令是否填了上面的 `node index.js` 或 `node checkin.js`。
 
 脚本不会在源码、报告或日志里保存 Bark key。Cookie 只从环境变量读取。
+
+Bark 通知正文里的活动链接使用 `dianping://picassobox?...` App 深链；点通知本身会打开本次第一个匹配活动。报告里会同时保存网页链接和 App 链接。
 
 ## 日志
 

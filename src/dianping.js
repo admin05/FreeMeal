@@ -133,11 +133,27 @@ export function activityIdFromUrl(detailUrl) {
   return match?.[1] || '';
 }
 
+export function appDetailUrlFromUrl(detailUrl) {
+  const activityId = activityIdFromUrl(detailUrl);
+  if (!activityId) {
+    return '';
+  }
+  const params = new URLSearchParams({
+    picassoid: 'pexus-freetry-detail/index-bundle.js',
+    notitlebar: 'true',
+    activityId,
+    offlineActivityId: activityId
+  });
+  return `dianping://picassobox?${params.toString()}`;
+}
+
 export function normalizeActivity(activity) {
   const modeValue = toNumber(activity.mode, 0);
+  const detailUrl = activity.detailUrl || '';
   return {
     activityTitle: activity.activityTitle || '',
-    detailUrl: activity.detailUrl || '',
+    detailUrl,
+    appDetailUrl: appDetailUrlFromUrl(detailUrl),
     mode: MODE_NAMES.get(modeValue) || String(activity.mode || ''),
     regionName: activity.regionName || '',
     raw: activity

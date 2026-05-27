@@ -76,7 +76,8 @@ async function main() {
     await notifyBark({
       bark: config.bark,
       title: notification.title,
-      body: notification.body
+      body: notification.body,
+      url: notification.url
     });
     logger.info('Bark notification finished');
   } catch (error) {
@@ -107,7 +108,7 @@ function buildNotification(summary, records, paths) {
         record.regionName ? `商圈：${compactText(record.regionName, 12)}` : '',
         record.winningRate ? `中奖率：${record.winningRate}%` : '',
         record.applyCount ? `报名：${record.applyCount}` : '',
-        record.detailUrl ? `链接：${record.detailUrl}` : ''
+        record.appDetailUrl ? `打开：${record.appDetailUrl}` : (record.detailUrl ? `链接：${record.detailUrl}` : '')
       ].filter(Boolean);
       return parts.join(' | ');
     })
@@ -123,7 +124,11 @@ function buildNotification(summary, records, paths) {
   ];
   const body = truncate(lines.filter(Boolean).join('\n'), 900);
 
-  return { title, body };
+  return {
+    title,
+    body,
+    url: matchedRecords[0]?.appDetailUrl || matchedRecords[0]?.detailUrl || ''
+  };
 }
 
 function buildMatchMessage(record) {

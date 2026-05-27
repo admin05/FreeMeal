@@ -6,6 +6,7 @@ const COLUMNS = [
   ['序号', 'index'],
   ['活动名称', 'activityTitle'],
   ['活动链接', 'detailUrl'],
+  ['点评App链接', 'appDetailUrl'],
   ['活动类型', 'mode'],
   ['活动商圈', 'regionName'],
   ['报名开始时间', 'applyStartTime'],
