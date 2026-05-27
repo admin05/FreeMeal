@@ -42,13 +42,13 @@ cp config/example.json config/local.json
 dry-run 检查：
 
 ```bash
-DIANPING_COOKIE='你的 Cookie' DIANPING_CITY_ID=1 npm run dry-run
+DIANPING_COOKIE='你的 Cookie' DIANPING_CITY_ID=1 node index.js --dry-run
 ```
 
 正式报名：
 
 ```bash
-DIANPING_COOKIE='你的 Cookie' DIANPING_CITY_ID=1 npm start
+DIANPING_COOKIE='你的 Cookie' DIANPING_CITY_ID=1 node index.js
 ```
 
 ## Arcadia
@@ -63,8 +63,16 @@ DIANPING_COOKIE='你的 Cookie' DIANPING_CITY_ID=1 npm start
 运行命令：
 
 ```bash
-node src/index.js
+node index.js
 ```
+
+如果 Arcadia 项目习惯使用 `checkin.js` 作为入口，也可以填：
+
+```bash
+node checkin.js
+```
+
+如果运行日志只有“执行开始/执行完毕”，但没有 `[FreeMeal] [INFO] Script started`，说明 Arcadia 没有执行到本项目入口。请检查任务的运行命令是否填了上面的 `node index.js` 或 `node checkin.js`。
 
 脚本不会在源码、报告或日志里保存 Bark key。Cookie 只从环境变量读取。
 
