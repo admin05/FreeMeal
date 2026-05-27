@@ -17,6 +17,11 @@ export async function loadConfig(argv = process.argv.slice(2), env = process.env
     cookie: env.DIANPING_COOKIE || fileConfig.cookie || '',
     maxPages: positiveInteger(cli.maxPages ?? env.FREEMEAL_MAX_PAGES ?? fileConfig.maxPages, 5),
     maxResults: positiveInteger(cli.maxResults ?? env.FREEMEAL_MAX_RESULTS ?? fileConfig.maxResults, 20),
+    maxDistanceKm: positiveNumber(cli.maxDistanceKm ?? env.FREEMEAL_MAX_DISTANCE_KM ?? fileConfig.maxDistanceKm, 10),
+    homeLat: toNumber(cli.homeLat ?? env.FREEMEAL_HOME_LAT ?? env.DIANPING_LAT ?? fileConfig.homeLat, 0),
+    homeLng: toNumber(cli.homeLng ?? env.FREEMEAL_HOME_LNG ?? env.DIANPING_LNG ?? fileConfig.homeLng, 0),
+    amapKey: cli.amapKey || env.FREEMEAL_AMAP_KEY || env.AMAP_KEY || fileConfig.amapKey || '',
+    excludeActivityIds: splitList(cli.excludeIds ?? env.FREEMEAL_EXCLUDE_IDS ?? fileConfig.excludeActivityIds),
     reportDir: cli.reportDir || env.FREEMEAL_REPORT_DIR || fileConfig.reportDir || 'reports',
     bark: env.BARK || fileConfig.bark || '',
     filters: {
@@ -59,5 +64,10 @@ async function readJsonIfExists(path) {
 
 function positiveInteger(value, fallback) {
   const number = Number.parseInt(value, 10);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function positiveNumber(value, fallback) {
+  const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : fallback;
 }

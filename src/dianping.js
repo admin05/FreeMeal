@@ -80,6 +80,7 @@ export class DianpingClient {
       applyCount: applicants,
       attentionCount: pickNumber(html, /<strong>(\d+)<\/strong>人关注/),
       passCount: pickText(html, /支持pass卡（剩余(\d+)个）/) || '不支持',
+      applied: /已报名|已申请|已经报过名|不要重复报名/.test(html),
       winningRate: applicants > 0 ? Number(((quota / applicants) * 100).toFixed(2)) : 0
     };
     if (!detail.activityCount && !detail.applyCount && !detail.activityAddress) {
@@ -150,12 +151,22 @@ export function appDetailUrlFromUrl(detailUrl) {
 export function normalizeActivity(activity) {
   const modeValue = toNumber(activity.mode, 0);
   const detailUrl = activity.detailUrl || '';
+  const offlineActivityId = String(activity.offlineActivityId || activityIdFromUrl(detailUrl) || '');
+  const applied = [
+    activity.applyed,
+    activity.applied,
+    activity.hasApplied,
+    activity.isApplied,
+    activity.userApplyStatus
+  ].some(isTruthyFlag);
   return {
+    offlineActivityId,
     activityTitle: activity.activityTitle || '',
     detailUrl,
     appDetailUrl: appDetailUrlFromUrl(detailUrl),
     mode: MODE_NAMES.get(modeValue) || String(activity.mode || ''),
     regionName: activity.regionName || '',
+    applied,
     raw: activity
   };
 }
@@ -197,4 +208,15 @@ function pickText(html, regexp, group = 1) {
 
 function pickNumber(html, regexp) {
   return toNumber(html.match(regexp)?.[1], 0);
+}
+
+function isTruthyFlag(value) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value > 0;
+  }
+  const text = String(value ?? '').trim().toLowerCase();
+  return ['1', 'true', 'yes', 'y', 'applied', 'success', '已报名', '已申请'].includes(text);
 }

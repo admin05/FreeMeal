@@ -3,6 +3,11 @@
   "cityName": "福州",
   "maxPages": 3,
   "maxResults": 20,
+  "maxDistanceKm": 10,
+  "homeLat": 0,
+  "homeLng": 0,
+  "amapKey": "",
+  "excludeActivityIds": [],
   "filters": {
     "includeKeywords": [],
     "excludeKeywords": [],
