@@ -14,11 +14,6 @@ const MODE_NAMES = new Map([
   [5, '天天抽奖']
 ]);
 
-const MOBILE_BASE_URL = 'https://m.dianping.com';
-const DETAIL_URL = `${MOBILE_BASE_URL}/bwc/customer/loadactivitydetail.bin`;
-const PRE_APPLY_URL = `${MOBILE_BASE_URL}/bwc/customer/preapply.bin`;
-const DO_APPLY_URL = `${MOBILE_BASE_URL}/bwc/customer/doapply.bin`;
-
 export class HttpError extends Error {
   constructor(message, { status, url, body = '' } = {}) {
     super(message);
@@ -93,80 +88,6 @@ export class DianpingClient {
     return detail;
   }
 
-  async applyActivity(activityId, { cityId, token, profile = {} } = {}) {
-    const detail = await this.loadMobileActivityDetail(activityId, { cityId, token, profile });
-    const preApply = await this.preApplyActivity(activityId, { cityId, token, profile });
-    const chosenShop = chooseShop(preApply?.data) || chooseShop(detail?.data) || {};
-    const doApplyPayload = {
-      activityId: pickActivityId(preApply?.data, detail?.data, activityId),
-      branchId: chosenShop.shopId || profile.branchId || '',
-      shopIdEncrypt: chosenShop.shopIdEncrypt || profile.shopIdEncrypt || '',
-      passCardNo: profile.passCardNo || '',
-      substituteState: profile.substituteState ? 1 : 0,
-      token,
-      appCityId: toNumber(cityId, cityId)
-    };
-
-    if (!doApplyPayload.branchId && !doApplyPayload.shopIdEncrypt) {
-      return {
-        status: 'failed',
-        message: '预报名成功但未返回可报名门店，无法提交 doapply'
-      };
-    }
-
-    this.logger?.info(`Pre-apply ok, selected branch=${maskValue(doApplyPayload.branchId || doApplyPayload.shopIdEncrypt)}`);
-    const body = await this.postMobileJson(DO_APPLY_URL, doApplyPayload);
-
-    return classifyApplyResult(body);
-  }
-
-  async loadMobileActivityDetail(activityId, { cityId, token, profile = {} } = {}) {
-    const payload = {
-      showBranchPassApply: 'true',
-      activityId: toNumber(activityId, activityId),
-      env: 'dp',
-      lng: profile.lng || '',
-      lat: profile.lat || '',
-      token,
-      version: 'v3',
-      appCityId: toNumber(cityId, cityId),
-      sysName: profile.sysName || 'iOS',
-      sysVersion: profile.sysVersion || ''
-    };
-    return this.getMobileJson(DETAIL_URL, payload);
-  }
-
-  async preApplyActivity(activityId, { cityId, token, profile = {} } = {}) {
-    const payload = {
-      activityId: toNumber(activityId, activityId),
-      showBranchPassApply: 'true',
-      lng: profile.lng || '',
-      lat: profile.lat || '',
-      token,
-      locCityId: profile.locCityId || cityId
-    };
-    return this.getMobileJson(PRE_APPLY_URL, payload);
-  }
-
-  async getMobileJson(url, params) {
-    const target = `${url}?${new URLSearchParams(cleanParams(params)).toString()}`;
-    return this.requestJson(target, {
-      method: 'GET',
-      headers: this.mobileHeaders()
-    });
-  }
-
-  async postMobileJson(url, payload) {
-    return this.requestJson(url, {
-      method: 'POST',
-      headers: {
-        ...this.mobileHeaders(),
-        'Content-Type': 'application/json;charset=UTF-8'
-      },
-      body: JSON.stringify(cleanParams(payload))
-    });
-  }
-
   mobileHeaders() {
     return {
       ...BASE_HEADERS,
@@ -238,60 +159,6 @@ export function shouldApply(activity, filters) {
     return false;
   }
   return true;
-}
-
-function classifyApplyResult(body) {
-  const code = body?.code;
-  const message = body?.message || body?.msg || body?.data?.message || JSON.stringify(body);
-  const text = String(message || '');
-  if (code === 200 || text.includes('报名成功') || text.includes('申请成功')) {
-    return { status: 'success', message: text || '报名成功' };
-  }
-  if (text.includes('已经报过名') || text.includes('不要重复报名') || text.includes('已报名') || text.includes('已申请')) {
-    return { status: 'duplicate', message: compactText(text, 260) };
-  }
-  return { status: 'failed', message: compactText(text, 260) || '报名异常' };
-}
-
-function chooseShop(data) {
-  const districts = data?.optionalDistricts || [];
-  for (const district of districts) {
-    const shops = district?.optionalShops || [];
-    const available = shops.find((shop) => shop && shop.branchPassApplyStatus !== 0);
-    if (available) {
-      return available;
-    }
-  }
-  return null;
-}
-
-function pickActivityId(...values) {
-  for (const value of values) {
-    if (!value) {
-      continue;
-    }
-    if (typeof value === 'object' && value.activityId) {
-      return toNumber(value.activityId, value.activityId);
-    }
-    if (typeof value !== 'object') {
-      return toNumber(value, value);
-    }
-  }
-  return '';
-}
-
-function cleanParams(params) {
-  return Object.fromEntries(
-    Object.entries(params).filter(([, value]) => value !== undefined && value !== null)
-  );
-}
-
-function maskValue(value) {
-  const text = String(value || '');
-  if (text.length <= 4) {
-    return text ? '***' : '';
-  }
-  return `${text.slice(0, 2)}***${text.slice(-2)}`;
 }
 
 function sanitizeUrl(url) {

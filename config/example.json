@@ -2,29 +2,11 @@
   "cityId": "14",
   "cityName": "福州",
   "maxPages": 3,
-  "maxApply": 20,
-  "dryRun": true,
-  "lat": "",
-  "lng": "",
-  "locCityId": "14",
+  "maxResults": 20,
   "filters": {
     "includeKeywords": [],
     "excludeKeywords": [],
     "minWinningRate": 0,
     "modes": []
-  },
-  "applyProfile": {
-    "phoneNo": "",
-    "shippingAddress": "",
-    "extraCount": "",
-    "birthdayStr": "",
-    "email": "",
-    "marryStatus": "0",
-    "comboId": "",
-    "branchId": "",
-    "usePassCard": "0",
-    "passCardNo": "",
-    "isShareSina": "true",
-    "isShareQQ": "true"
   }
 }

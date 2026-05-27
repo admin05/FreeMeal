@@ -1,8 +1,8 @@
 import { loadConfig } from './config.js';
-import { activityIdFromUrl, DianpingClient, HttpError, shouldApply } from './dianping.js';
+import { DianpingClient, shouldApply } from './dianping.js';
 import { notifyBark } from './notifier.js';
 import { writeReports } from './report.js';
-import { compactText, createLogger, sleep } from './utils.js';
+import { compactText, createLogger } from './utils.js';
 
 const logger = createLogger();
 
@@ -14,10 +14,8 @@ async function main() {
   logger.info([
     `Config loaded: city=${config.cityName || config.cityId}`,
     `maxPages=${config.maxPages}`,
-    `maxApply=${config.maxApply}`,
-    `dryRun=${config.dryRun}`,
+    `maxResults=${config.maxResults}`,
     `cookie=${config.cookie ? 'configured' : 'missing'}`,
-    `token=${config.token ? 'configured' : 'missing'}`,
     `bark=${config.bark ? 'configured' : 'missing'}`
   ].join(', '));
 
@@ -32,15 +30,10 @@ async function main() {
   const summary = {
     city: config.cityName || config.cityId,
     total: list.length,
-    selected: 0,
-    success: 0,
-    duplicate: 0,
-    failed: 0,
-    skipped: 0,
-    dryRun: config.dryRun
+    matched: 0,
+    skipped: 0
   };
 
-  let applyEndpointUnavailable = false;
   for (const [index, activity] of list.entries()) {
     logger.info(`Processing ${index + 1}/${list.length}: ${compactText(activity.activityTitle, 60)}`);
     const detail = await safeFetchDetail(client, activity.detailUrl);
@@ -48,81 +41,29 @@ async function main() {
       index: index + 1,
       ...activity,
       ...detail,
-      applyStatus: 'skipped',
-      applyMessage: ''
+      discoveryStatus: 'skipped',
+      discoveryMessage: ''
     };
 
     if (!shouldApply(record, config.filters)) {
-      record.applyMessage = '过滤规则跳过';
+      record.discoveryMessage = '过滤规则跳过';
       summary.skipped += 1;
       logger.info(`Skipped by filters: ${compactText(record.activityTitle, 60)}`);
       records.push(record);
       continue;
     }
 
-    if (summary.selected >= config.maxApply) {
-      record.applyMessage = '超过 maxApply 限制';
+    if (summary.matched >= config.maxResults) {
+      record.discoveryMessage = '超过 maxResults 限制';
       summary.skipped += 1;
-      logger.info(`Skipped by maxApply limit: ${compactText(record.activityTitle, 60)}`);
-      records.push(record);
-      continue;
-    }
-
-    if (applyEndpointUnavailable) {
-      record.applyMessage = '报名接口不可用，已停止继续提交';
-      summary.skipped += 1;
-      logger.warn(`Skipped because apply endpoint is unavailable: ${compactText(record.activityTitle, 60)}`);
-      records.push(record);
-      continue;
-    }
-
-    summary.selected += 1;
-    const offlineActivityId = activityIdFromUrl(record.detailUrl);
-    if (!offlineActivityId) {
-      record.applyStatus = 'failed';
-      record.applyMessage = '无法从活动链接解析 offlineActivityId';
-      summary.failed += 1;
-      logger.warn(`Failed to parse activity id: ${record.detailUrl}`);
-      records.push(record);
-      continue;
-    }
-
-    if (config.dryRun) {
-      record.applyStatus = 'dry-run';
-      record.applyMessage = 'dry-run 预览，未提交报名';
-      logger.info(`Dry-run selected: ${compactText(record.activityTitle, 60)} (${offlineActivityId})`);
-      records.push(record);
-      continue;
-    }
-
-    try {
-      logger.info(`Applying activity ${offlineActivityId}: ${compactText(record.activityTitle, 60)}`);
-      const result = await client.applyActivity(offlineActivityId, {
-        cityId: config.cityId,
-        token: config.token,
-        profile: {
-          ...config.applyProfile,
-          lat: config.lat,
-          lng: config.lng,
-          locCityId: config.locCityId
-        }
-      });
-      record.applyStatus = result.status;
-      record.applyMessage = result.message;
-      summary[result.status] += 1;
-      logger.info(`Apply result for ${offlineActivityId}: ${result.status} - ${result.message}`);
-    } catch (error) {
-      record.applyStatus = 'failed';
-      record.applyMessage = normalizeApplyError(error);
-      summary.failed += 1;
-      logger.error(`Apply failed for ${offlineActivityId}: ${record.applyMessage}`);
-      if (isApplyEndpointUnavailable(error)) {
-        applyEndpointUnavailable = true;
-        logger.error('Apply endpoint is unavailable or blocked. Stop further apply attempts for this run.');
-      }
+      logger.info(`Skipped by maxResults limit: ${compactText(record.activityTitle, 60)}`);
+    } else {
+      summary.matched += 1;
+      record.discoveryStatus = 'matched';
+      record.discoveryMessage = buildMatchMessage(record);
+      logger.info(`Matched: ${compactText(record.activityTitle, 60)} - ${record.discoveryMessage}`);
     }
     records.push(record);
-    await sleep(config.requestDelayMs);
   }
 
   const paths = await writeReports({ reportDir: config.reportDir, records, summary });
@@ -157,24 +98,42 @@ async function safeFetchDetail(client, detailUrl) {
 }
 
 function buildNotification(summary, records, paths) {
-  const appliedRecords = records.filter((record) => ['success', 'duplicate', 'failed', 'dry-run'].includes(record.applyStatus));
-  const preview = appliedRecords
-    .slice(0, 5)
-    .map((record) => `${record.index}. ${compactText(record.activityTitle, 24)}: ${compactText(record.applyMessage, 42)}`)
+  const matchedRecords = records.filter((record) => record.discoveryStatus === 'matched');
+  const preview = matchedRecords
+    .slice(0, 8)
+    .map((record) => {
+      const parts = [
+        `${record.index}. ${compactText(record.activityTitle, 24)}`,
+        record.regionName ? `商圈：${compactText(record.regionName, 12)}` : '',
+        record.winningRate ? `中奖率：${record.winningRate}%` : '',
+        record.applyCount ? `报名：${record.applyCount}` : '',
+        record.detailUrl ? `链接：${record.detailUrl}` : ''
+      ].filter(Boolean);
+      return parts.join(' | ');
+    })
     .join('\n');
 
-  const title = summary.dryRun ? '大众点评免费试 dry-run' : '大众点评免费试报名结果';
+  const title = summary.matched > 0 ? `大众点评免费试发现 ${summary.matched} 个` : '大众点评免费试无匹配';
   const lines = [
     `城市：${summary.city}`,
-    `活动：${summary.total}，选中：${summary.selected}，跳过：${summary.skipped}`,
-    `成功：${summary.success}，重复：${summary.duplicate}，失败：${summary.failed}`,
-    summary.dryRun ? '状态：dry-run，未提交报名' : '状态：已执行报名',
-    preview ? `\n预览：\n${preview}` : '',
+    `活动：${summary.total}，匹配：${summary.matched}，跳过：${summary.skipped}`,
+    '状态：仅发现和通知，未提交报名',
+    preview ? `\n匹配活动：\n${preview}` : '\n本次没有符合过滤条件的活动。',
     `\n报告：${paths.csvPath}`
   ];
   const body = truncate(lines.filter(Boolean).join('\n'), 900);
 
   return { title, body };
+}
+
+function buildMatchMessage(record) {
+  const parts = [
+    record.winningRate ? `中奖率 ${record.winningRate}%` : '',
+    record.applyCount ? `报名 ${record.applyCount}` : '',
+    record.activityCount ? `名额 ${record.activityCount}` : '',
+    record.regionName ? `商圈 ${record.regionName}` : ''
+  ].filter(Boolean);
+  return parts.join('，') || '符合筛选条件';
 }
 
 function truncate(text, maxLength) {
@@ -184,29 +143,13 @@ function truncate(text, maxLength) {
   return `${text.slice(0, maxLength - 3)}...`;
 }
 
-function normalizeApplyError(error) {
-  if (isApplyEndpointUnavailable(error)) {
-    if (error.status === 403) {
-      return '报名接口返回 403，App 接口可能需要大众点评原生 MAPI/Shark 通道或额外签名，已停止继续提交';
-    }
-    return '报名接口返回 404，请重新抓包确认 preapply/doapply 接口是否变化';
-  }
-  return compactText(error.message, 180);
-}
-
-function isApplyEndpointUnavailable(error) {
-  return error instanceof HttpError
-    && [403, 404].includes(error.status)
-    && /\/bwc\/customer\/(?:preapply|doapply|loadactivitydetail)\.bin/.test(String(error.url || ''));
-}
-
 main().catch(async (error) => {
   logger.error(error.stack || error.message);
   try {
-    const config = await loadConfig(['--dry-run']);
+    const config = await loadConfig([]);
     await notifyBark({
       bark: config.bark,
-      title: '大众点评免费试运行失败',
+      title: '大众点评免费试发现失败',
       body: error.message
     });
   } catch {

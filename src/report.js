@@ -19,8 +19,8 @@ const COLUMNS = [
   ['活动地址', 'activityAddress'],
   ['剩余PASS次数', 'passCount'],
   ['详情错误', 'detailError'],
-  ['报名状态', 'applyStatus'],
-  ['报名结果', 'applyMessage']
+  ['发现状态', 'discoveryStatus'],
+  ['发现结果', 'discoveryMessage']
 ];
 
 export async function writeReports({ reportDir, records, summary }) {

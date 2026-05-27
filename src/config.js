@@ -15,40 +15,18 @@ export async function loadConfig(argv = process.argv.slice(2), env = process.env
     cityId: cli.cityId || env.DIANPING_CITY_ID || fileConfig.cityId || DEFAULT_CITY_ID,
     cityName: cli.cityName || env.DIANPING_CITY_NAME || fileConfig.cityName || DEFAULT_CITY_NAME,
     cookie: env.DIANPING_COOKIE || fileConfig.cookie || '',
-    token: env.DIANPING_TOKEN || fileConfig.token || '',
     maxPages: positiveInteger(cli.maxPages ?? env.FREEMEAL_MAX_PAGES ?? fileConfig.maxPages, 5),
-    maxApply: positiveInteger(cli.maxApply ?? env.FREEMEAL_MAX_APPLY ?? fileConfig.maxApply, 50),
-    requestDelayMs: positiveInteger(cli.requestDelayMs ?? env.FREEMEAL_DELAY_MS ?? fileConfig.requestDelayMs, 800),
-    dryRun: Boolean(cli.dryRun || env.FREEMEAL_DRY_RUN === '1' || fileConfig.dryRun),
+    maxResults: positiveInteger(cli.maxResults ?? env.FREEMEAL_MAX_RESULTS ?? fileConfig.maxResults, 20),
     reportDir: cli.reportDir || env.FREEMEAL_REPORT_DIR || fileConfig.reportDir || 'reports',
-    lat: cli.lat || env.DIANPING_LAT || fileConfig.lat || '',
-    lng: cli.lng || env.DIANPING_LNG || fileConfig.lng || '',
-    locCityId: cli.locCityId || env.DIANPING_LOC_CITY_ID || fileConfig.locCityId || cli.cityId || env.DIANPING_CITY_ID || fileConfig.cityId || DEFAULT_CITY_ID,
     bark: env.BARK || fileConfig.bark || '',
     filters: {
       includeKeywords: splitList(cli.include ?? env.FREEMEAL_INCLUDE ?? fileConfig.filters?.includeKeywords),
       excludeKeywords: splitList(cli.exclude ?? env.FREEMEAL_EXCLUDE ?? fileConfig.filters?.excludeKeywords),
       minWinningRate: toNumber(cli.minWinningRate ?? env.FREEMEAL_MIN_WIN_RATE ?? fileConfig.filters?.minWinningRate, 0),
       modes: splitList(cli.modes ?? env.FREEMEAL_MODES ?? fileConfig.filters?.modes)
-    },
-    applyProfile: {
-      phoneNo: '',
-      shippingAddress: '',
-      extraCount: '',
-      birthdayStr: '',
-      email: '',
-      marryStatus: '0',
-      comboId: '',
-      branchId: '',
-      usePassCard: '0',
-      passCardNo: '',
-      isShareSina: 'true',
-      isShareQQ: 'true',
-      ...(fileConfig.applyProfile || {})
     }
   };
 
-  validateConfig(config);
   return config;
 }
 
@@ -56,10 +34,6 @@ function parseArgs(argv) {
   const result = {};
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === '--dry-run') {
-      result.dryRun = true;
-      continue;
-    }
     if (!arg.startsWith('--')) {
       continue;
     }
@@ -86,13 +60,4 @@ async function readJsonIfExists(path) {
 function positiveInteger(value, fallback) {
   const number = Number.parseInt(value, 10);
   return Number.isFinite(number) && number > 0 ? number : fallback;
-}
-
-function validateConfig(config) {
-  if (!config.cookie && !config.dryRun) {
-    throw new Error('Missing DIANPING_COOKIE. Use --dry-run for list preview without applying.');
-  }
-  if (!config.token && !config.dryRun) {
-    throw new Error('Missing DIANPING_TOKEN. Dianping app apply API requires the app token.');
-  }
 }
