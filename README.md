@@ -106,3 +106,5 @@ node scripts/extract-token.js "/path/to/Stream.har" --show-secret
 大众点评接口可能变更，也可能对账号、Cookie、风控或验证码有额外校验。建议首次运行使用 `node index.js --dry-run`，确认活动列表和过滤规则正常后再正式报名。
 
 当前脚本可以稳定拉取免费试列表。报名流程已按大众点评 App 抓包更新为 `loadactivitydetail.bin -> preapply.bin -> doapply.bin`，并会从预报名结果里自动选择可报名门店后提交。如果接口继续变化，需要用手机 App 重新抓包确认新的详情页和报名接口参数。
+
+如果正式报名时 `loadactivitydetail.bin`、`preapply.bin` 或 `doapply.bin` 返回 `403`，说明该 App 接口拒绝普通 HTTP 请求，可能依赖大众点评 App 原生 MAPI/Shark 通道、设备参数或额外签名。脚本会在第一个 `403` 后停止继续提交，避免对所有活动重复失败请求。

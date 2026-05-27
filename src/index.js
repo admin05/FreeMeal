@@ -118,7 +118,7 @@ async function main() {
       logger.error(`Apply failed for ${offlineActivityId}: ${record.applyMessage}`);
       if (isApplyEndpointUnavailable(error)) {
         applyEndpointUnavailable = true;
-        logger.error('Apply endpoint returned 404. Stop further apply attempts for this run.');
+        logger.error('Apply endpoint is unavailable or blocked. Stop further apply attempts for this run.');
       }
     }
     records.push(record);
@@ -186,6 +186,9 @@ function truncate(text, maxLength) {
 
 function normalizeApplyError(error) {
   if (isApplyEndpointUnavailable(error)) {
+    if (error.status === 403) {
+      return '报名接口返回 403，App 接口可能需要大众点评原生 MAPI/Shark 通道或额外签名，已停止继续提交';
+    }
     return '报名接口返回 404，请重新抓包确认 preapply/doapply 接口是否变化';
   }
   return compactText(error.message, 180);
@@ -193,7 +196,7 @@ function normalizeApplyError(error) {
 
 function isApplyEndpointUnavailable(error) {
   return error instanceof HttpError
-    && error.status === 404
+    && [403, 404].includes(error.status)
     && /\/bwc\/customer\/(?:preapply|doapply|loadactivitydetail)\.bin/.test(String(error.url || ''));
 }
 
