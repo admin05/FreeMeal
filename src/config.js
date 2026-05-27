@@ -20,6 +20,7 @@ export async function loadConfig(argv = process.argv.slice(2), env = process.env
     requestDelayMs: positiveInteger(cli.requestDelayMs ?? env.FREEMEAL_DELAY_MS ?? fileConfig.requestDelayMs, 800),
     dryRun: Boolean(cli.dryRun || env.FREEMEAL_DRY_RUN === '1' || fileConfig.dryRun),
     reportDir: cli.reportDir || env.FREEMEAL_REPORT_DIR || fileConfig.reportDir || 'reports',
+    applyUrl: cli.applyUrl || env.DIANPING_APPLY_URL || fileConfig.applyUrl || '',
     bark: env.BARK || fileConfig.bark || '',
     filters: {
       includeKeywords: splitList(cli.include ?? env.FREEMEAL_INCLUDE ?? fileConfig.filters?.includeKeywords),

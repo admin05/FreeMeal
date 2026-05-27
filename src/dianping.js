@@ -14,11 +14,24 @@ const MODE_NAMES = new Map([
   [5, '天天抽奖']
 ]);
 
+const DEFAULT_APPLY_URL = 'http://s.dianping.com/ajax/json/activity/offline/saveApplyInfo';
+
+export class HttpError extends Error {
+  constructor(message, { status, url, body = '' } = {}) {
+    super(message);
+    this.name = 'HttpError';
+    this.status = status;
+    this.url = url;
+    this.body = body;
+  }
+}
+
 export class DianpingClient {
-  constructor({ cookie = '', timeoutMs = 15000, logger = null } = {}) {
+  constructor({ cookie = '', timeoutMs = 15000, logger = null, applyUrl = '' } = {}) {
     this.cookie = cookie;
     this.timeoutMs = timeoutMs;
     this.logger = logger;
+    this.applyUrl = applyUrl || DEFAULT_APPLY_URL;
   }
 
   async fetchActivities({ cityId, maxPages = 5 }) {
@@ -100,7 +113,7 @@ export class DianpingClient {
       ...profile
     });
 
-    const body = await this.requestJson('http://s.dianping.com/ajax/json/activity/offline/saveApplyInfo', {
+    const body = await this.requestJson(this.applyUrl, {
       method: 'POST',
       headers: {
         ...BASE_HEADERS,
@@ -133,7 +146,11 @@ export class DianpingClient {
       });
       const text = await response.text();
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status} from ${url}: ${compactText(text)}`);
+        throw new HttpError(`HTTP ${response.status} from ${url}: ${compactText(text)}`, {
+          status: response.status,
+          url,
+          body: text
+        });
       }
       return text;
     } finally {

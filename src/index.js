@@ -1,5 +1,5 @@
 import { loadConfig } from './config.js';
-import { activityIdFromUrl, DianpingClient, shouldApply } from './dianping.js';
+import { activityIdFromUrl, DianpingClient, HttpError, shouldApply } from './dianping.js';
 import { notifyBark } from './notifier.js';
 import { writeReports } from './report.js';
 import { compactText, createLogger, sleep } from './utils.js';
@@ -9,7 +9,7 @@ const logger = createLogger();
 async function main() {
   logger.info('Script started');
   const config = await loadConfig();
-  const client = new DianpingClient({ cookie: config.cookie, logger });
+  const client = new DianpingClient({ cookie: config.cookie, logger, applyUrl: config.applyUrl });
 
   logger.info([
     `Config loaded: city=${config.cityName || config.cityId}`,
@@ -17,7 +17,8 @@ async function main() {
     `maxApply=${config.maxApply}`,
     `dryRun=${config.dryRun}`,
     `cookie=${config.cookie ? 'configured' : 'missing'}`,
-    `bark=${config.bark ? 'configured' : 'missing'}`
+    `bark=${config.bark ? 'configured' : 'missing'}`,
+    `applyUrl=${config.applyUrl ? 'custom' : 'default'}`
   ].join(', '));
 
   logger.info(`Fetching activities for city ${config.cityName || config.cityId}`);
@@ -39,6 +40,7 @@ async function main() {
     dryRun: config.dryRun
   };
 
+  let applyEndpointUnavailable = false;
   for (const [index, activity] of list.entries()) {
     logger.info(`Processing ${index + 1}/${list.length}: ${compactText(activity.activityTitle, 60)}`);
     const detail = await safeFetchDetail(client, activity.detailUrl);
@@ -62,6 +64,14 @@ async function main() {
       record.applyMessage = '超过 maxApply 限制';
       summary.skipped += 1;
       logger.info(`Skipped by maxApply limit: ${compactText(record.activityTitle, 60)}`);
+      records.push(record);
+      continue;
+    }
+
+    if (applyEndpointUnavailable) {
+      record.applyMessage = '报名接口不可用，已停止继续提交';
+      summary.skipped += 1;
+      logger.warn(`Skipped because apply endpoint is unavailable: ${compactText(record.activityTitle, 60)}`);
       records.push(record);
       continue;
     }
@@ -94,9 +104,13 @@ async function main() {
       logger.info(`Apply result for ${offlineActivityId}: ${result.status} - ${result.message}`);
     } catch (error) {
       record.applyStatus = 'failed';
-      record.applyMessage = error.message;
+      record.applyMessage = normalizeApplyError(error);
       summary.failed += 1;
-      logger.error(`Apply failed for ${offlineActivityId}: ${error.message}`);
+      logger.error(`Apply failed for ${offlineActivityId}: ${record.applyMessage}`);
+      if (isApplyEndpointUnavailable(error)) {
+        applyEndpointUnavailable = true;
+        logger.error('Apply endpoint returned 404. Stop further apply attempts for this run.');
+      }
     }
     records.push(record);
     await sleep(config.requestDelayMs);
@@ -136,21 +150,42 @@ async function safeFetchDetail(client, detailUrl) {
 function buildNotification(summary, records, paths) {
   const appliedRecords = records.filter((record) => ['success', 'duplicate', 'failed', 'dry-run'].includes(record.applyStatus));
   const preview = appliedRecords
-    .slice(0, 8)
-    .map((record) => `${record.index}. ${compactText(record.activityTitle, 28)}: ${record.applyMessage}`)
+    .slice(0, 5)
+    .map((record) => `${record.index}. ${compactText(record.activityTitle, 24)}: ${compactText(record.applyMessage, 42)}`)
     .join('\n');
 
   const title = summary.dryRun ? '大众点评免费试 dry-run' : '大众点评免费试报名结果';
-  const body = [
+  const lines = [
     `城市：${summary.city}`,
     `活动：${summary.total}，选中：${summary.selected}，跳过：${summary.skipped}`,
     `成功：${summary.success}，重复：${summary.duplicate}，失败：${summary.failed}`,
     summary.dryRun ? '状态：dry-run，未提交报名' : '状态：已执行报名',
     preview ? `\n预览：\n${preview}` : '',
     `\n报告：${paths.csvPath}`
-  ].filter(Boolean).join('\n');
+  ];
+  const body = truncate(lines.filter(Boolean).join('\n'), 900);
 
   return { title, body };
+}
+
+function truncate(text, maxLength) {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength - 3)}...`;
+}
+
+function normalizeApplyError(error) {
+  if (isApplyEndpointUnavailable(error)) {
+    return '报名接口返回 404，旧版 saveApplyInfo 接口疑似已失效';
+  }
+  return compactText(error.message, 180);
+}
+
+function isApplyEndpointUnavailable(error) {
+  return error instanceof HttpError
+    && error.status === 404
+    && String(error.url || '').includes('/activity/offline/saveApplyInfo');
 }
 
 main().catch(async (error) => {

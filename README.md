@@ -30,6 +30,7 @@
 - `FREEMEAL_EXCLUDE`: 标题排除关键词，逗号分隔
 - `FREEMEAL_MIN_WIN_RATE`: 最低中奖率百分比
 - `FREEMEAL_MODES`: 活动模式，逗号分隔，例如 `聚会,电子券`
+- `DIANPING_APPLY_URL`: 自定义报名接口。默认使用旧版 PC 接口；若大众点评接口迁移，需要抓包后更新。
 
 ## 使用
 
@@ -83,3 +84,5 @@ node checkin.js
 ## 说明
 
 大众点评接口可能变更，也可能对账号、Cookie、风控或验证码有额外校验。建议首次运行使用 `node index.js --dry-run`，确认活动列表和过滤规则正常后再正式报名。
+
+当前脚本可以稳定拉取免费试列表。参考项目使用的旧版 PC 报名接口若返回 404，脚本会停止继续提交，并在 Bark 中提示“旧版 saveApplyInfo 接口疑似已失效”。这种情况需要用手机 App 或网页登录时的实际报名请求重新抓包，拿到新的报名接口后通过 `DIANPING_APPLY_URL` 适配。
