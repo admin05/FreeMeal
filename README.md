@@ -16,10 +16,10 @@
 必需：
 
 - `DIANPING_COOKIE`: 登录后的大众点评 Cookie
-- `DIANPING_CITY_ID`: 城市 ID，例如上海为 `1`
 
 可选：
 
+- `DIANPING_CITY_ID`: 城市 ID，默认福州 `14`
 - `DIANPING_CITY_NAME`: 城市名称，通知中展示
 - `BARK`: Bark key、完整 Bark URL，或 Bark base URL
 - `FREEMEAL_CONFIG`: JSON 配置文件路径，默认读取 `config/local.json`
@@ -42,13 +42,13 @@ cp config/example.json config/local.json
 dry-run 检查：
 
 ```bash
-DIANPING_COOKIE='你的 Cookie' DIANPING_CITY_ID=1 node index.js --dry-run
+DIANPING_COOKIE='你的 Cookie' node index.js --dry-run
 ```
 
 正式报名：
 
 ```bash
-DIANPING_COOKIE='你的 Cookie' DIANPING_CITY_ID=1 node index.js
+DIANPING_COOKIE='你的 Cookie' node index.js
 ```
 
 ## Arcadia
@@ -56,9 +56,9 @@ DIANPING_COOKIE='你的 Cookie' DIANPING_CITY_ID=1 node index.js
 在 Arcadia 环境变量中配置：
 
 - `DIANPING_COOKIE`
-- `DIANPING_CITY_ID`
-- `DIANPING_CITY_NAME`
 - `BARK`
+
+脚本默认使用福州：`DIANPING_CITY_ID=14`、`DIANPING_CITY_NAME=福州`，一般不用在 Arcadia 里额外配置城市。
 
 运行命令：
 
@@ -82,4 +82,4 @@ node checkin.js
 
 ## 说明
 
-大众点评接口可能变更，也可能对账号、Cookie、风控或验证码有额外校验。建议首次运行使用 `npm run dry-run`，确认活动列表和过滤规则正常后再正式报名。
+大众点评接口可能变更，也可能对账号、Cookie、风控或验证码有额外校验。建议首次运行使用 `node index.js --dry-run`，确认活动列表和过滤规则正常后再正式报名。

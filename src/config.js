@@ -4,14 +4,16 @@ import { resolve } from 'node:path';
 import { splitList, toNumber } from './utils.js';
 
 const DEFAULT_CONFIG_PATH = 'config/local.json';
+const DEFAULT_CITY_ID = '14';
+const DEFAULT_CITY_NAME = '福州';
 
 export async function loadConfig(argv = process.argv.slice(2), env = process.env) {
   const cli = parseArgs(argv);
   const fileConfig = await readJsonIfExists(cli.config || env.FREEMEAL_CONFIG || DEFAULT_CONFIG_PATH);
 
   const config = {
-    cityId: cli.cityId || env.DIANPING_CITY_ID || fileConfig.cityId,
-    cityName: cli.cityName || env.DIANPING_CITY_NAME || fileConfig.cityName || '',
+    cityId: cli.cityId || env.DIANPING_CITY_ID || fileConfig.cityId || DEFAULT_CITY_ID,
+    cityName: cli.cityName || env.DIANPING_CITY_NAME || fileConfig.cityName || DEFAULT_CITY_NAME,
     cookie: env.DIANPING_COOKIE || fileConfig.cookie || '',
     maxPages: positiveInteger(cli.maxPages ?? env.FREEMEAL_MAX_PAGES ?? fileConfig.maxPages, 5),
     maxApply: positiveInteger(cli.maxApply ?? env.FREEMEAL_MAX_APPLY ?? fileConfig.maxApply, 50),
@@ -83,9 +85,6 @@ function positiveInteger(value, fallback) {
 }
 
 function validateConfig(config) {
-  if (!config.cityId) {
-    throw new Error('Missing DIANPING_CITY_ID or cityId in config file.');
-  }
   if (!config.cookie && !config.dryRun) {
     throw new Error('Missing DIANPING_COOKIE. Use --dry-run for list preview without applying.');
   }
