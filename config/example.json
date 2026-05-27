@@ -1,0 +1,27 @@
+{
+  "cityId": "1",
+  "cityName": "上海",
+  "maxPages": 3,
+  "maxApply": 20,
+  "dryRun": true,
+  "filters": {
+    "includeKeywords": [],
+    "excludeKeywords": [],
+    "minWinningRate": 0,
+    "modes": []
+  },
+  "applyProfile": {
+    "phoneNo": "",
+    "shippingAddress": "",
+    "extraCount": "",
+    "birthdayStr": "",
+    "email": "",
+    "marryStatus": "0",
+    "comboId": "",
+    "branchId": "",
+    "usePassCard": "0",
+    "passCardNo": "",
+    "isShareSina": "true",
+    "isShareQQ": "true"
+  }
+}
