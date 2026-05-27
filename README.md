@@ -16,6 +16,7 @@
 必需：
 
 - `DIANPING_COOKIE`: 登录后的大众点评 Cookie
+- `DIANPING_TOKEN`: 大众点评 App 环境 token，新版报名接口必需
 
 可选：
 
@@ -30,7 +31,7 @@
 - `FREEMEAL_EXCLUDE`: 标题排除关键词，逗号分隔
 - `FREEMEAL_MIN_WIN_RATE`: 最低中奖率百分比
 - `FREEMEAL_MODES`: 活动模式，逗号分隔，例如 `聚会,电子券`
-- `DIANPING_APPLY_URL`: 自定义报名接口。默认使用旧版 PC 接口；若大众点评接口迁移，需要抓包后更新。
+- `DIANPING_APPLY_URL`: 自定义报名接口。默认使用新版 `https://m.dianping.com/bwc/customer/fastapply.bin`。
 
 ## 使用
 
@@ -49,7 +50,7 @@ DIANPING_COOKIE='你的 Cookie' node index.js --dry-run
 正式报名：
 
 ```bash
-DIANPING_COOKIE='你的 Cookie' node index.js
+DIANPING_COOKIE='你的 Cookie' DIANPING_TOKEN='你的 App token' node index.js
 ```
 
 ## Arcadia
@@ -57,6 +58,7 @@ DIANPING_COOKIE='你的 Cookie' node index.js
 在 Arcadia 环境变量中配置：
 
 - `DIANPING_COOKIE`
+- `DIANPING_TOKEN`
 - `BARK`
 
 脚本默认使用福州：`DIANPING_CITY_ID=14`、`DIANPING_CITY_NAME=福州`，一般不用在 Arcadia 里额外配置城市。
@@ -79,10 +81,10 @@ node checkin.js
 
 ## 日志
 
-脚本会输出带时间戳的运行日志，包括配置摘要、列表页抓取进度、活动处理进度、报名结果、报告路径和 Bark 发送状态。日志只显示 `cookie=configured/missing` 和 `bark=configured/missing`，不会打印 Cookie 或 Bark key。
+脚本会输出带时间戳的运行日志，包括配置摘要、列表页抓取进度、活动处理进度、报名结果、报告路径和 Bark 发送状态。日志只显示 `cookie=configured/missing`、`token=configured/missing` 和 `bark=configured/missing`，不会打印 Cookie、token 或 Bark key。
 
 ## 说明
 
 大众点评接口可能变更，也可能对账号、Cookie、风控或验证码有额外校验。建议首次运行使用 `node index.js --dry-run`，确认活动列表和过滤规则正常后再正式报名。
 
-当前脚本可以稳定拉取免费试列表。参考项目使用的旧版 PC 报名接口若返回 404，脚本会停止继续提交，并在 Bark 中提示“旧版 saveApplyInfo 接口疑似已失效”。这种情况需要用手机 App 或网页登录时的实际报名请求重新抓包，拿到新的报名接口后通过 `DIANPING_APPLY_URL` 适配。
+当前脚本可以稳定拉取免费试列表。新版报名接口来自大众点评 App 的 `fastapply.bin`，请求参数为 `appCityId`、`activityId` 和 `token`。如果接口继续变化，需要用手机 App 重新抓包，拿到新的报名接口后通过 `DIANPING_APPLY_URL` 适配。

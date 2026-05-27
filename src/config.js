@@ -15,6 +15,7 @@ export async function loadConfig(argv = process.argv.slice(2), env = process.env
     cityId: cli.cityId || env.DIANPING_CITY_ID || fileConfig.cityId || DEFAULT_CITY_ID,
     cityName: cli.cityName || env.DIANPING_CITY_NAME || fileConfig.cityName || DEFAULT_CITY_NAME,
     cookie: env.DIANPING_COOKIE || fileConfig.cookie || '',
+    token: env.DIANPING_TOKEN || fileConfig.token || '',
     maxPages: positiveInteger(cli.maxPages ?? env.FREEMEAL_MAX_PAGES ?? fileConfig.maxPages, 5),
     maxApply: positiveInteger(cli.maxApply ?? env.FREEMEAL_MAX_APPLY ?? fileConfig.maxApply, 50),
     requestDelayMs: positiveInteger(cli.requestDelayMs ?? env.FREEMEAL_DELAY_MS ?? fileConfig.requestDelayMs, 800),
@@ -88,5 +89,8 @@ function positiveInteger(value, fallback) {
 function validateConfig(config) {
   if (!config.cookie && !config.dryRun) {
     throw new Error('Missing DIANPING_COOKIE. Use --dry-run for list preview without applying.');
+  }
+  if (!config.token && !config.dryRun) {
+    throw new Error('Missing DIANPING_TOKEN. New Dianping fast apply API requires the app token.');
   }
 }

@@ -4,7 +4,7 @@
   "maxPages": 3,
   "maxApply": 20,
   "dryRun": true,
-  "applyUrl": "",
+  "applyUrl": "https://m.dianping.com/bwc/customer/fastapply.bin",
   "filters": {
     "includeKeywords": [],
     "excludeKeywords": [],

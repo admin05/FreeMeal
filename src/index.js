@@ -17,6 +17,7 @@ async function main() {
     `maxApply=${config.maxApply}`,
     `dryRun=${config.dryRun}`,
     `cookie=${config.cookie ? 'configured' : 'missing'}`,
+    `token=${config.token ? 'configured' : 'missing'}`,
     `bark=${config.bark ? 'configured' : 'missing'}`,
     `applyUrl=${config.applyUrl ? 'custom' : 'default'}`
   ].join(', '));
@@ -97,7 +98,11 @@ async function main() {
 
     try {
       logger.info(`Applying activity ${offlineActivityId}: ${compactText(record.activityTitle, 60)}`);
-      const result = await client.applyActivity(offlineActivityId, config.applyProfile);
+      const result = await client.applyActivity(offlineActivityId, {
+        cityId: config.cityId,
+        token: config.token,
+        profile: config.applyProfile
+      });
       record.applyStatus = result.status;
       record.applyMessage = result.message;
       summary[result.status] += 1;
@@ -177,7 +182,7 @@ function truncate(text, maxLength) {
 
 function normalizeApplyError(error) {
   if (isApplyEndpointUnavailable(error)) {
-    return '报名接口返回 404，旧版 saveApplyInfo 接口疑似已失效';
+    return '报名接口返回 404，请重新抓包确认 fastapply 接口是否变化';
   }
   return compactText(error.message, 180);
 }
@@ -185,7 +190,7 @@ function normalizeApplyError(error) {
 function isApplyEndpointUnavailable(error) {
   return error instanceof HttpError
     && error.status === 404
-    && String(error.url || '').includes('/activity/offline/saveApplyInfo');
+    && String(error.url || '').includes('/bwc/customer/fastapply.bin');
 }
 
 main().catch(async (error) => {

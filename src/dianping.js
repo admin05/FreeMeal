@@ -14,7 +14,7 @@ const MODE_NAMES = new Map([
   [5, '天天抽奖']
 ]);
 
-const DEFAULT_APPLY_URL = 'http://s.dianping.com/ajax/json/activity/offline/saveApplyInfo';
+const DEFAULT_APPLY_URL = 'https://m.dianping.com/bwc/customer/fastapply.bin';
 
 export class HttpError extends Error {
   constructor(message, { status, url, body = '' } = {}) {
@@ -91,40 +91,25 @@ export class DianpingClient {
     return detail;
   }
 
-  async applyActivity(offlineActivityId, profile = {}) {
-    const today = new Date().toISOString().slice(0, 10);
-    const form = new URLSearchParams({
-      offlineActivityId,
-      phoneNo: '',
-      shippingAddress: '',
-      extraCount: '',
-      birthdayStr: '',
-      email: '',
-      marryDayStr: today,
-      babyBirths: today,
-      pregnant: '',
-      marryStatus: '0',
-      comboId: '',
-      branchId: '',
-      usePassCard: '0',
-      passCardNo: '',
-      isShareSina: 'true',
-      isShareQQ: 'true',
+  async applyActivity(activityId, { cityId, token, profile = {} } = {}) {
+    const payload = {
+      appCityId: toNumber(cityId, cityId),
+      activityId: toNumber(activityId, activityId),
+      token,
       ...profile
-    });
+    };
 
     const body = await this.requestJson(this.applyUrl, {
       method: 'POST',
       headers: {
         ...BASE_HEADERS,
         Cookie: this.cookie,
-        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+        'Content-Type': 'application/json;charset=UTF-8'
       },
-      body: form
+      body: JSON.stringify(payload)
     });
 
-    const html = body?.msg?.html || body?.msg || body?.message || JSON.stringify(body);
-    return classifyApplyResult(html);
+    return classifyApplyResult(body);
   }
 
   async requestJson(url, options) {
@@ -192,13 +177,15 @@ export function shouldApply(activity, filters) {
   return true;
 }
 
-function classifyApplyResult(message) {
+function classifyApplyResult(body) {
+  const code = body?.code;
+  const message = body?.message || body?.msg || body?.data?.message || JSON.stringify(body);
   const text = String(message || '');
-  if (text.includes('报名成功')) {
-    return { status: 'success', message: '报名成功' };
+  if (code === 200 || text.includes('报名成功') || text.includes('申请成功')) {
+    return { status: 'success', message: text || '报名成功' };
   }
-  if (text.includes('已经报过名') || text.includes('不要重复报名')) {
-    return { status: 'duplicate', message: '已经报过名了，不要重复报名' };
+  if (text.includes('已经报过名') || text.includes('不要重复报名') || text.includes('已报名') || text.includes('已申请')) {
+    return { status: 'duplicate', message: compactText(text, 260) };
   }
   return { status: 'failed', message: compactText(text, 260) || '报名异常' };
 }
